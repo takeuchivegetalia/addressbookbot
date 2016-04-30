@@ -1,6 +1,7 @@
 var restify = require('restify');
 var builder = require('botbuilder');
 var tmpdata = {};
+var msg = '';
 
 var bot = new builder.BotConnectorBot(
   { appId: 'process.env.appid',
@@ -13,52 +14,156 @@ bot.use(function(session, next) {
 });
 
 bot.add('/', new builder.CommandDialog()
-  .matches('^(regist|add)',  builder.DialogAction.beginDialog('/regist'))
-  .matches('^(find|search)', builder.DialogAction.beginDialog('/find'))
-  .matches('^list', showList)
+  .matches('^.*(表示).*', showList)
+  .matches('^.*(検索|探).*', builder.DialogAction.beginDialog('/find'))
+  .matches('^.*(登録|追加).*',  builder.DialogAction.beginDialog('/regist'))
+  .matches('^.*(全削除).*',  builder.DialogAction.beginDialog('/deleteall'))
+  .matches('^.*(削除|消).*',  builder.DialogAction.beginDialog('/delete'))
   .onDefault(function (session) {
-    var msg = 'you have ' + session.userData.addrbook.length + ' data.';
-    session.send('Hello, I am address book bot. ' + msg);
+    if (session.userData.addrbook.length >= 0)
+      msg = 'アドレス帳は' + session.userData.addrbook.length + '件です。（表示|検索|登録|削除|全削除）';
+    session.send(msg);
   }));
 
 function showList(session) {
-  var tmp = session.userData.addrbook.map(
-    current => 'name: ' + current.name + ' tel: ' + current.tel);
-  session.send(tmp.join(', '));
+  if (session.userData.addrbook.length === 0) {
+    msg = '表示するデータはありません。';
+  } else {
+    msg = session.userData.addrbook.map(
+      current => '【名前】' + current.name + '【電話番号】' + current.tel).join('　｜　');
+  }
+  session.send(msg);
 }
 
-bot.add('/regist', [
-  function(session) { 
-    builder.Prompts.text(session, 'what name do you want to add ?');
+bot.add('/find', [
+  function(session) {
+    builder.Prompts.text(session, '検索する名前は何でしょうか？');
   },
   function(session, results) {
     tmpdata.name = results.response;
-    builder.Prompts.text(session, 'telephone number? ');
+    if (!tmpdata.name)　{
+      msg = '中断しました。'
+      session.send(msg);
+      session.endDialog();
+      return;
+    }
+    var res = session.userData.addrbook.filter(
+      item => item.name == tmpdata.name ? true : false
+    );
+    if (res[0]) {
+      session.send("【名前】" + res[0].name + "【電話番号】" + res[0].tel);
+    } else {
+      session.send('その名前のデータはありません。');
+    }
+    session.endDialog();
+  }, 
+]);
+
+bot.add('/regist', [
+  function(session) { 
+    builder.Prompts.text(session, '登録する名前は何でしょうか？');
+  },
+  function(session, results) {
+    tmpdata.name = results.response;
+    if (!tmpdata.name)　{
+      msg = '中断しました。'
+      session.send(msg);
+      session.endDialog();
+      return;
+    }
+    builder.Prompts.text(session, '登録する電話番号は何でしょうか？');
   },
   function(session, results) {
     tmpdata.tel = results.response;
-    session.userData.addrbook.push(tmpdata);
-    session.send('registerd!');
+    if (!tmpdata.tel)　{
+      msg = '中断しました。'
+      session.send(msg);
+      session.endDialog();
+      return;
+    }
+    msg = "【名前】" + tmpdata.name + "【電話番号】" + tmpdata.tel + 'を登録しますか？（はい|いいえ）';
+    builder.Prompts.text(session, msg);
+  },
+  function(session, results) {
+    tmpdata.confirm = results.response;
+    if (!tmpdata.confirm)　{
+      msg = '中断しました。'
+      session.send(msg);
+      session.endDialog();
+      return;
+    }
+    if (tmpdata.confirm === 'はい')　{
+      session.userData.addrbook.push(tmpdata);
+      msg = "【名前】" + tmpdata.name + "【電話番号】" + tmpdata.tel + 'を登録しました。';
+      session.send(msg);
+    }
     session.endDialog();
   }
 ]);
 
-bot.add('/find', [
+bot.add('/deleteall', [
   function(session) {
-    builder.Prompts.text(session, 'find? ');
+    builder.Prompts.text(session, 'すべてのデータを削除しますか？（はい|いいえ）');
   },
   function(session, results) {
-    var target = results.response;
-    var res = session.userData.addrbook.filter(
-      item => item.name == target ? true : false
-    );
-    if (res[0]) {
-      session.send("name: " + res[0].name + " tel: " + res[0].tel);
-    } else {
-      session.send('no such data');
+    tmpdata.confirm = results.response;
+    if (!tmpdata.confirm)　{
+      msg = '削除しませんでした。'
+      session.send(msg);
+      session.endDialog();
+      return;
+    }
+    if (tmpdata.confirm === 'はい')　{
+      session.userData.addrbook = [];
+      msg = 'すべてのデータを削除しました。';
+      session.send(msg);
     }
     session.endDialog();
-  }, 
+  }
+]);
+
+bot.add('/delete', [
+  function(session) {
+    builder.Prompts.text(session, '削除する名前は何でしょうか？');
+  },
+  function(session, results) {
+    tmpdata.name = results.response;
+    if (!tmpdata.name)　{
+      msg = '中断しました。'
+      session.send(msg);
+      session.endDialog();
+      return;
+    }
+    var res = session.userData.addrbook.filter(
+      item => item.name == tmpdata.name ? true : false
+    );
+    tmpdata.name = res[0].name;
+    tmpdata.tel = res[0].tel;
+    if (res[0]) {
+      msg = "【名前】" + tmpdata.name + 'を削除しますか？（はい|いいえ）';
+      builder.Prompts.text(session, msg);
+    } else {
+      session.send(tmpdata.name + 'のデータはありません。');
+      session.endDialog();
+    }
+  },
+  function(session, results) {
+    tmpdata.confirm = results.response;
+    if (!tmpdata.confirm)　{
+      msg = '削除しませんでした。'
+      session.send(msg);
+      session.endDialog();
+      return;
+    }
+    if (tmpdata.confirm === 'はい')　{
+      session.userData.addrbook = session.userData.addrbook.filter(function(item){
+        return item.name !== tmpdata.name;
+      });
+      msg = "【名前】" + tmpdata.name + 'を削除しました。';
+      session.send(msg);
+    }
+    session.endDialog();
+  }
 ]);
 
 var server = restify.createServer();
