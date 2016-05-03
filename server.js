@@ -21,7 +21,7 @@ bot.add('/', new builder.CommandDialog()
   .matches('^.*(削除|消).*',  builder.DialogAction.beginDialog('/delete'))
   .onDefault(function (session) {
     if (session.userData.addrbook.length >= 0)
-      msg = 'アドレス帳は' + session.userData.addrbook.length + '件です。（表示|検索|登録|削除|全削除）';
+      msg = 'あなたのアドレス帳は' + session.userData.addrbook.length + '件です。（表示|検索|登録|削除|全削除）';
     session.send(msg);
   }));
 
@@ -89,13 +89,14 @@ bot.add('/regist', [
     if (!tmpdata.confirm)　{
       msg = '中断しました。'
       session.send(msg);
-      session.endDialog();
-      return;
-    }
-    if (tmpdata.confirm === 'はい')　{
+    } else if (tmpdata.confirm === 'はい')　{
       session.userData.addrbook.push(tmpdata);
       msg = "【名前】" + tmpdata.name + "【電話番号】" + tmpdata.tel + 'を登録しました。';
       session.send(msg);
+    } else {
+      msg = '中断しました。'
+      session.send(msg);
+      session.endDialog();
     }
     session.endDialog();
   }
@@ -110,12 +111,12 @@ bot.add('/deleteall', [
     if (!tmpdata.confirm)　{
       msg = '削除しませんでした。'
       session.send(msg);
-      session.endDialog();
-      return;
-    }
-    if (tmpdata.confirm === 'はい')　{
+    } else if (tmpdata.confirm === 'はい')　{
       session.userData.addrbook = [];
       msg = 'すべてのデータを削除しました。';
+      session.send(msg);
+    } else {
+      msg = '削除しませんでした。'
       session.send(msg);
     }
     session.endDialog();
@@ -137,9 +138,9 @@ bot.add('/delete', [
     var res = session.userData.addrbook.filter(
       item => item.name == tmpdata.name ? true : false
     );
-    tmpdata.name = res[0].name;
-    tmpdata.tel = res[0].tel;
     if (res[0]) {
+      tmpdata.name = res[0].name;
+      tmpdata.tel = res[0].tel;
       msg = "【名前】" + tmpdata.name + 'を削除しますか？（はい|いいえ）';
       builder.Prompts.text(session, msg);
     } else {
@@ -152,14 +153,14 @@ bot.add('/delete', [
     if (!tmpdata.confirm)　{
       msg = '削除しませんでした。'
       session.send(msg);
-      session.endDialog();
-      return;
-    }
-    if (tmpdata.confirm === 'はい')　{
+    } else if (tmpdata.confirm === 'はい')　{
       session.userData.addrbook = session.userData.addrbook.filter(function(item){
         return item.name !== tmpdata.name;
       });
       msg = "【名前】" + tmpdata.name + 'を削除しました。';
+      session.send(msg);
+    } else {
+      msg = '削除しませんでした。'
       session.send(msg);
     }
     session.endDialog();
